@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# vim:ts=4
+
+read esc < <(echo -en '\e')
+
+color(){
+	local c=${@:2}
+	eval $1="$esc[\${c// /;}m"
+}
+
+tpl(){
+	if [ $# -ge 2 ]
+	then tpl+="$1 \"$2\" "
+	else tpl+="\"$1\" "
+	fi
+}
+
+save(){
+	eval $1=\$tpl
+	unset tpl
+}
+
+while getopts 'bcC:de:f:n:os:vx' opt; do
+	case $opt in
+		C) blocks=$OPTARG ;;
+		[bcdovx]) opts+=" -$opt" ;;
+		*) opts+=" -$opt \"$OPTARG\"" ;;
+	esac
+done
+shift $((${OPTIND} - 1))
+eval set -- $opts "$@"
+
+let blocks-=0
+[ $blocks -eq 0 ] && blocks=2
+
+color ADDR  31			# Addresses color
+color BSX   1 33		# Hex block start
+color BEX   0 38 5 250	# Rest block data
+color BRD   38 5 240	# Border
+color NO				# Disable color
+
+tpl "$ADDR%08_ax  "
+save addr_block
+
+let cnt=$blocks-1
+while true; do
+	tpl 1/1 "$BSX%02x "
+	tpl 3/1 "$BEX%02x "
+	tpl 1/1 " $BSX%02x "
+	tpl 3/1 "$BEX%02x "
+	[ $((cnt--)) -gt 0 ] || break
+	tpl "  "
+done
+save hex_block
+
+tpl "  $BRD|"
+let cnt=$blocks
+while [ $cnt -gt 0 ]; do
+	tpl 1/1 "$BSX%_p"
+	tpl 3/1 "$BEX%_p"
+	tpl 1/1 "$BSX%_p"
+	tpl 3/1 "$BEX%_p"
+	let cnt-=1
+done
+tpl "$BRD|$NO\n"
+tpl "$ADDR%08_Ax$NO\n"
+save chars_block
+
+exec hexdump \
+	-e "$addr_block $hex_block" \
+	-e "$chars_block" \
+	"$@"
