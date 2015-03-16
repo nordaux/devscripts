@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # vim:ts=4
 
-read esc < <(echo -en '\e')
+printf -v esc "\e"
 
 color(){
 	local c=${@:2}
